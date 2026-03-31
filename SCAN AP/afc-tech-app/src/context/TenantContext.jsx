@@ -97,9 +97,9 @@ const INDUSTRY_PRESETS = {
   },
 };
 
-// Default / fallback config (original HVAC / AFC branding)
+// Default / fallback config used when no tenant is resolved
 const DEFAULT_CONFIG = {
-  tenantName: "AFC Technician",
+  tenantName: "Field Service Platform",
   industry: "hvac",
   brandColor: "#0ea5e9",
   logoUrl: null,
