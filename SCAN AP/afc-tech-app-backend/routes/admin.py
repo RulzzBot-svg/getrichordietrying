@@ -1,17 +1,9 @@
 from flask import Blueprint, jsonify, request
-from models import Location as Hospital, Asset as AHU, Job, Technician, SupervisorSignoff, Notification
+from models import Location, Asset, Job, Technician, SupervisorSignoff, Notification
 from db import db
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 from middleware.auth import require_admin
-import subprocess
-import time
-import os
-import platform
-from pathlib import Path
-import logging
-
-logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -21,14 +13,14 @@ admin_bp = Blueprint("admin", __name__)
 def create_supervisor_signoff():
     try:
         data = request.get_json()
-        hospital_id = data.get("hospital_id")
+        location_id = data.get("location_id") or data.get("hospital_id")
         date_str = data.get("date")
         supervisor_name = data.get("supervisor_name")
         summary = data.get("summary")
         signature_data = data.get("signature_data")
         job_ids = data.get("job_ids")
 
-        if not (hospital_id and date_str and supervisor_name and signature_data and job_ids):
+        if not (location_id and date_str and supervisor_name and signature_data and job_ids):
             return jsonify({"error": "Missing required fields"}), 400
 
         try:
@@ -42,7 +34,7 @@ def create_supervisor_signoff():
             job_ids_str = str(job_ids)
 
         new_signoff = SupervisorSignoff(
-            location_id=hospital_id,
+            location_id=location_id,
             date=date,
             supervisor_name=supervisor_name,
             summary=summary,
@@ -61,11 +53,11 @@ def create_supervisor_signoff():
 @require_admin
 def get_supervisor_signoffs():
     try:
-        hospital_id = request.args.get("hospital_id")
+        location_id = request.args.get("location_id") or request.args.get("hospital_id")
         date_str = request.args.get("date")
         query = SupervisorSignoff.query
-        if hospital_id:
-            query = query.filter_by(location_id=hospital_id)
+        if location_id:
+            query = query.filter_by(location_id=location_id)
         if date_str:
             try:
                 date = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -76,7 +68,7 @@ def get_supervisor_signoffs():
         result = [
             {
                 "id": s.id,
-                "hospital_id": s.location_id,
+                "location_id": s.location_id,
                 "date": s.date.isoformat(),
                 "supervisor_name": s.supervisor_name,
                 "summary": s.summary,
@@ -91,14 +83,14 @@ def get_supervisor_signoffs():
         return jsonify({"error": str(e)}), 500
 
 
-@admin_bp.route("/hospitals", methods=["GET"])
+@admin_bp.route("/locations", methods=["GET"])
 @require_admin
-def get_hospitals():
+def get_locations():
     try:
-        hospitals = Hospital.query.all()
+        locations = Location.query.all()
         return jsonify([
             {"id": h.id, "name": h.name, "active": getattr(h, "active", True)}
-            for h in hospitals
+            for h in locations
         ]), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -107,10 +99,10 @@ def get_hospitals():
 @admin_bp.route("/overview", methods=["GET"])
 @require_admin
 def admin_overview():
-    hospitals = Hospital.query.all()
+    locations = Location.query.all()
     return jsonify({
-        "hospitals": len(hospitals),
-        "total_ahus": 0,
+        "locations": len(locations),
+        "total_assets": 0,
         "overdue": 0,
         "due_soon": 0,
         "completed": 0,
@@ -126,10 +118,10 @@ def list_notifications():
         result = [
             {
                 "id": n.id,
-                "hospital_id": n.location_id,
-                "hospital_name": n.location.name if n.location else None,
-                "ahu_id": n.asset_id,
-                "ahu_name": n.asset.name if n.asset else None,
+                "location_id": n.location_id,
+                "location_name": n.location.name if n.location else None,
+                "asset_id": n.asset_id,
+                "asset_name": n.asset.name if n.asset else None,
                 "job_id": n.job_id,
                 "technician_id": n.technician_id,
                 "technician_name": n.technician.name if n.technician else None,
@@ -187,14 +179,14 @@ def get_all_jobs():
     result = [
         {
             "id": job.id,
-            "ahu_id": job.asset_id,
-            "ahu_name": job.asset.name if job.asset else "Unknown",
+            "asset_id": job.asset_id,
+            "asset_name": job.asset.name if job.asset else "Unknown",
             "technician": job.technician.name if job.technician else "Unknown",
             "completed_at": job.completed_at.isoformat() + "Z",
             "overall_notes": job.overall_notes,
             "gps_lat": job.gps_lat,
             "gps_long": job.gps_long,
-            "filters": [
+            "service_items": [
                 {
                     "phase": jf.service_item.phase,
                     "part_number": jf.service_item.part_number,
@@ -211,96 +203,55 @@ def get_all_jobs():
     return jsonify(result), 200
 
 
-@admin_bp.route("/ahu", methods=["POST"])
+@admin_bp.route("/assets", methods=["POST"])
 @require_admin
-def create_ahu():
+def create_asset():
     try:
         data = request.get_json()
-        hospital_id = data.get("hospital_id")
-        ahu_name_input = data.get("ahu_name")
-        location = data.get("location")
+        location_id = data.get("location_id") or data.get("hospital_id")
+        asset_name_input = data.get("asset_name") or data.get("ahu_name")
+        location_label = data.get("location")
         notes = data.get("notes")
 
-        if not hospital_id:
-            return jsonify({"error": "Missing hospital_id"}), 400
+        if not location_id:
+            return jsonify({"error": "Missing location_id"}), 400
 
-        hospital = Hospital.query.get(hospital_id)
-        if not hospital:
-            return jsonify({"error": "Hospital not found"}), 404
+        location = Location.query.get(location_id)
+        if not location:
+            return jsonify({"error": "Location not found"}), 404
 
         note_bits = []
-        if ahu_name_input:
-            note_bits.append(f"Manual label: {ahu_name_input}")
+        if asset_name_input:
+            note_bits.append(f"Manual label: {asset_name_input}")
         if notes:
             note_bits.append(str(notes))
         final_notes = " | ".join(note_bits) if note_bits else None
 
-        new_ahu = AHU(
-            tenant_id=hospital.tenant_id,
-            location_id=hospital_id,
-            name=ahu_name_input or None,
-            location_label=location,
+        new_asset = Asset(
+            tenant_id=location.tenant_id,
+            location_id=location_id,
+            name=asset_name_input or None,
+            location_label=location_label,
             notes=final_notes,
         )
-        db.session.add(new_ahu)
+        db.session.add(new_asset)
         db.session.commit()
 
-        if not new_ahu.name:
-            new_ahu.name = f"AHU-{new_ahu.id:03d}"
-        if hasattr(new_ahu, "excel_order") and not new_ahu.excel_order:
-            new_ahu.excel_order = int(new_ahu.id)
+        if not new_asset.name:
+            new_asset.name = f"Asset-{new_asset.id:03d}"
+        if hasattr(new_asset, "excel_order") and not new_asset.excel_order:
+            new_asset.excel_order = int(new_asset.id)
         db.session.commit()
 
         return jsonify({
-            "id": new_ahu.id,
-            "hospital_id": new_ahu.location_id,
-            "name": new_ahu.name,
-            "location": new_ahu.location_label,
-            "notes": new_ahu.notes,
-            "excel_order": new_ahu.excel_order,
+            "id": new_asset.id,
+            "location_id": new_asset.location_id,
+            "name": new_asset.name,
+            "location": new_asset.location_label,
+            "notes": new_asset.notes,
+            "excel_order": new_asset.excel_order,
         }), 201
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
-
-
-@admin_bp.route("/launch-qb-macro", methods=["POST"])
-@require_admin
-def launch_qb_macro():
-    try:
-        if platform.system() != "Windows":
-            return jsonify({
-                "error": "QB macros only work on Windows systems",
-                "current_system": platform.system(),
-                "tip": "Run QB operations on your local Windows machine.",
-            }), 400
-
-        data = request.get_json() or {}
-        action = data.get("action")
-        delete_old = data.get("delete_old", False)
-
-        if not action:
-            return jsonify({"error": "Missing 'action' parameter"}), 400
-
-        if action not in ["generate_packing_slip"]:
-            return jsonify({"error": f"Invalid action: {action}"}), 400
-
-        macro_dir = Path(__file__).parent.parent
-
-        if delete_old:
-            qb_delete_script = macro_dir / "qb_sections.au3"
-            if not qb_delete_script.exists():
-                return jsonify({"error": "qb_sections.au3 not found"}), 404
-            subprocess.Popen(str(qb_delete_script))
-            time.sleep(2.5)
-
-        special_paste_exe = macro_dir / "SpecialPaste.exe"
-        if not special_paste_exe.exists():
-            return jsonify({"error": "SpecialPaste.exe not found"}), 404
-
-        subprocess.Popen(str(special_paste_exe))
-        return jsonify({"status": "started", "message": "QB macros launched"}), 200
-
-    except Exception as e:
         return jsonify({"error": str(e)}), 500

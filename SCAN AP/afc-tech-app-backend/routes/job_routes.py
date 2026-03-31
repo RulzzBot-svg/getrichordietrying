@@ -121,10 +121,10 @@ def get_job(job_id):
     if not job:
         return jsonify({"error": "Job not found"}), 404
 
-    filters = [
+    service_items_payload = [
         {
-            "job_filter_id": jf.id,
-            "filter_id": jf.service_item_id,
+            "job_service_item_id": jf.id,
+            "service_item_id": jf.service_item_id,
             "phase": jf.service_item.phase,
             "part_number": jf.service_item.part_number,
             "size": jf.service_item.size,
@@ -138,13 +138,13 @@ def get_job(job_id):
 
     return jsonify({
         "job_id": job.id,
-        "ahu_id": job.asset_id,
+        "asset_id": job.asset_id,
         "technician_id": job.tech_id,
         "completed_at": job.completed_at.isoformat(),
         "overall_notes": job.overall_notes,
         "gps_lat": job.gps_lat,
         "gps_long": job.gps_long,
-        "filters": filters,
+        "service_items": service_items_payload,
     }), 200
 
 
@@ -164,13 +164,13 @@ def get_all_jobs():
     payload = [
         {
             "id": j.id,
-            "ahu_id": j.asset_id,
-            "ahu_name": j.asset.name if j.asset else None,
+            "asset_id": j.asset_id,
+            "asset_name": j.asset.name if j.asset else None,
             "technician": j.technician.name if j.technician else None,
             "completed_at": j.completed_at.isoformat(),
-            "filters": [
+            "service_items": [
                 {
-                    "filter_id": jf.service_item_id,
+                    "service_item_id": jf.service_item_id,
                     "phase": jf.service_item.phase,
                     "part_number": jf.service_item.part_number,
                     "size": jf.service_item.size,
