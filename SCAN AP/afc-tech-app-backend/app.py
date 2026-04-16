@@ -3,6 +3,7 @@ from db import db
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
+from pathlib import Path
 
 # Legacy HVAC-specific blueprints (kept for backward compatibility)
 from routes.hospital_routes import hospital_bp
@@ -27,9 +28,14 @@ def create_app():
     # -----------------------------
     # DATABASE CONFIG
     # -----------------------------
-    db_url = os.getenv("DATABASE_URL")
+    db_url = os.getenv("DATABASE_URL", "").strip()
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+
     if not db_url:
-        raise RuntimeError("DATABASE_URL is not set. Check .env")
+        sqlite_path = Path(__file__).resolve().parent / "local_dev.db"
+        db_url = f"sqlite:///{sqlite_path.as_posix()}"
+        print(f"[local-dev] DATABASE_URL not set. Using SQLite at {sqlite_path}")
 
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False

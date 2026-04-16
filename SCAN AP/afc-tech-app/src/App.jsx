@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import LogoutButton from "./components/common/logoutbutton";
-import { useOfflineSync } from "./offline/useOfflineSync";
 import { useTenant } from "./context/TenantContext";
 
 export default function App() {
   const navigate = useNavigate();
-  const { syncing, lastResult, runSync } = useOfflineSync();
 
   // Tenant config — brand colour, terminology, logo
   const { config } = useTenant();
@@ -22,14 +20,20 @@ export default function App() {
     }
   }, []);
 
-  // Redirect to login if no tech in storage
+  // Keep users on this page in lightweight local mode.
   useEffect(() => {
-    if (!tech) navigate("/");
-  }, [tech, navigate]);
+    if (!tech) {
+      localStorage.setItem(
+        "tech",
+        JSON.stringify({ id: 1, name: "Local Tech", role: "technician" })
+      );
+    }
+  }, [tech]);
 
-  if (!tech) return null;
+  const effectiveTech =
+    tech || { id: 1, name: "Local Tech", role: "technician" };
 
-  const role = String(tech?.role || "").trim().toLowerCase();
+  const role = String(effectiveTech?.role || "").trim().toLowerCase();
   const isAdmin = role === "admin";
 
   return (
@@ -55,7 +59,7 @@ export default function App() {
       <main className="flex-1 px-4 pt-4 pb-10 max-w-md mx-auto w-full space-y-5">
         {/* Greeting */}
         <section>
-          <h1 className="text-2xl font-semibold">Hi {tech.name}, let's get to work!</h1>
+          <h1 className="text-2xl font-semibold">Hi {effectiveTech.name}, let's get to work!</h1>
           <p className="text-sm text-base-content/70 mt-1">
             Choose how you want to start today's job.
           </p>
@@ -137,22 +141,6 @@ export default function App() {
           <div className="flex justify-between text-xs text-base-content/60">
             <span>Today's jobs</span>
             <span className="font-semibold">—</span>
-          </div>
-
-          <div style={{ position: "fixed", bottom: 10, right: 10, zIndex: 9999 }}>
-            <button
-              onClick={runSync}
-              disabled={syncing}
-              className="btn btn-xs"
-              title="Sync queued jobs"
-            >
-              {syncing ? "Syncing..." : "Sync"}
-            </button>
-            {lastResult && (
-              <div className="text-xs mt-1 opacity-70">
-                synced: {lastResult.synced}, failed: {lastResult.failed}
-              </div>
-            )}
           </div>
 
           <div className="flex justify-between text-xs text-base-content/60">

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { getCachedAHU } from "../../offline/ahuCache";
 
 /**
  * Extract the asset_id from a scanned QR code text.
@@ -108,17 +107,10 @@ export default function QRScanner() {
               return;
             }
 
-            // Offline: check cache
+            // Offline: keep behavior simple in local mode
             if (!navigator.onLine) {
-              setStatus("Checking offline downloads…");
-              const cached = await getCachedAHU(assetId);
-              if (cached) {
-                setStatus("Opening cached asset…");
-                window.location.assign(resolveNavigationTarget(decodedText, assetId));
-              } else {
-                setStatus("Not downloaded for offline use.");
-                window.location.assign(`/offline-not-downloaded/${encodeURIComponent(assetId)}`);
-              }
+              setStatus("Offline mode: navigating to local scan page…");
+              window.location.assign(resolveNavigationTarget(decodedText, assetId));
               return;
             }
 

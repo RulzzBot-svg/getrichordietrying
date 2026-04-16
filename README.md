@@ -109,6 +109,27 @@ Key environment variables (see `.env.example`):
 
 ---
 
+## Local Backend (No External Database)
+
+For local development, you can run the backend without PostgreSQL.
+If `DATABASE_URL` is not set, the app automatically uses SQLite at:
+
+`SCAN AP/afc-tech-app-backend/local_dev.db`
+
+```bash
+cd "SCAN AP/afc-tech-app-backend"
+python -m venv .venv
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python init_db.py
+python app.py
+```
+
+API will be available at `http://127.0.0.1:5000/`.
+
+---
+
 ## Frontend Deployment
 
 ```bash

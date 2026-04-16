@@ -42,7 +42,9 @@ import React, {
 } from "react";
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? "http://127.0.0.1:5000" : "");
 
 // ---------------------------------------------------------------------------
 // Industry presets (mirror of backend INDUSTRY_PRESETS)
@@ -99,6 +101,7 @@ const INDUSTRY_PRESETS = {
 
 // Default / fallback config used when no tenant is resolved
 const DEFAULT_CONFIG = {
+  tenantId: 1,
   tenantName: "Field Service Platform",
   industry: "hvac",
   brandColor: "#0ea5e9",
@@ -167,6 +170,7 @@ export function TenantProvider({ children }) {
           ...(data.terminology || {}),      // server overrides
         };
         const nextConfig = {
+          tenantId: data.id || tenantKey,
           tenantName: data.name || DEFAULT_CONFIG.tenantName,
           industry,
           brandColor: data.brand_color || DEFAULT_CONFIG.brandColor,
@@ -179,7 +183,7 @@ export function TenantProvider({ children }) {
       })
       .catch(() => {
         if (!cancelled) {
-          setConfig({ ...DEFAULT_CONFIG, loading: false });
+          setConfig({ ...DEFAULT_CONFIG, loading: false, tenantId: tenantKey || 1 });
         }
       });
 
