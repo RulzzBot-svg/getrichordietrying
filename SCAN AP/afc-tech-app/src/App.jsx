@@ -84,6 +84,22 @@ export default function App() {
             </div>
           </div>
 
+          <div className="card bg-base-100 border border-base-300 shadow-sm">
+            <div className="card-body p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="card-title text-base">Tracking Dashboard</h2>
+                <span className="badge rounded-2xl badge-info text-xs">New</span>
+              </div>
+              <p className="text-sm text-base-content/70 mb-3 leading-snug">
+                Open the dashboard, review tracked activity, and manage the labels shown to
+                technicians in manual mode.
+              </p>
+              <button className="btn btn-outline btn-info w-full" onClick={() => navigate("/dashboard")}>
+                Open Dashboard
+              </button>
+            </div>
+          </div>
+
           {/* Manual Mode */}
           <div className="card bg-base-100 border border-base-300 shadow-sm">
             <div className="card-body p-4">
@@ -94,12 +110,11 @@ export default function App() {
                 <span className="badge rounded-2xl badge-ghost text-xs">Fallback</span>
               </div>
               <p className="text-sm text-base-content/70 mb-3 leading-snug">
-                If the QR label is missing or the camera has issues, browse{" "}
-                {terms.location_plural.toLowerCase()} manually and pick the{" "}
-                {terms.asset_name}.
+                If the QR label is missing or you need to log work directly, open the
+                tracked manual entry form and fill in the fields configured on the dashboard.
               </p>
-              <button className="btn btn-outline w-full" onClick={() => navigate("/hospitals")}>
-                🏢 Choose {terms.location_name} &amp; {terms.asset_name}
+              <button className="btn btn-outline w-full" onClick={() => navigate("/manual-mode")}>
+                Open Manual Mode
               </button>
             </div>
           </div>

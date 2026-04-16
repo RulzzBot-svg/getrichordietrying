@@ -8,6 +8,8 @@ import QRScanner from "./components/common/QRScanner";
 import AssetScanPage from "./pages/AssetScanPage";
 import LocationAssetBrowser from "./pages/LocationAssetBrowser";
 import AdminDashboard from "./pages/AdminDashboard";
+import TrackingDashboard from "./pages/TrackingDashboard";
+import ManualModePage from "./pages/ManualModePage";
 import { TenantProvider } from "./context/TenantContext";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -24,8 +26,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/scan" element={<QRScanner />} />
           {/* Manual location/asset browser — fallback when QR not available */}
           <Route path="/hospitals" element={<LocationAssetBrowser />} />
+          <Route path="/manual-mode" element={<ManualModePage />} />
           {/* Universal asset scan page — opened by /scan?asset_id=<id> QR codes */}
           <Route path="/asset-scan" element={<AssetScanPage />} />
+          <Route path="/dashboard" element={<TrackingDashboard />} />
           {/* Admin dashboard — for admins only */}
           <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
