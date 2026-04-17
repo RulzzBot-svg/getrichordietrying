@@ -5,8 +5,11 @@ import {
   getTrackedEntries,
   getTrackedFields,
   getTrackedSummary,
+  getTrackedFieldVisibility,
   saveTrackedFields,
+  saveTrackedFieldVisibility,
 } from "../utils/trackedWorkflow";
+import "./TrackingDashboard.css";
 
 function formatTimestamp(value) {
   if (!value) return "No tracked activity yet";
@@ -18,256 +21,334 @@ function formatTimestamp(value) {
   }
 }
 
+function EyeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M2 12C3.8 7.8 7.5 5 12 5C16.5 5 20.2 7.8 22 12C20.2 16.2 16.5 19 12 19C7.5 19 3.8 16.2 2 12Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function EyeSlashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M2 12C3.8 7.8 7.5 5 12 5C16.5 5 20.2 7.8 22 12C20.2 16.2 16.5 19 12 19C7.5 19 3.8 16.2 2 12Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4 4L20 20" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function Sparkline() {
+  return (
+    <svg viewBox="0 0 180 56" className="sparkline" preserveAspectRatio="none" aria-hidden="true">
+      <polyline
+        fill="none"
+        stroke="#16a34a"
+        strokeWidth="3"
+        points="0,44 20,39 40,42 60,31 80,34 100,26 120,29 140,18 160,21 180,13"
+      />
+    </svg>
+  );
+}
+
 export default function TrackingDashboard() {
   const navigate = useNavigate();
   const { config } = useTenant();
-  const [activeTab, setActiveTab] = useState("overview");
-  const [fieldInput, setFieldInput] = useState("");
+
   const [fields, setFields] = useState(() => getTrackedFields());
   const [entries, setEntries] = useState(() => getTrackedEntries());
+  const [fieldInput, setFieldInput] = useState("");
+  const [yearFilter, setYearFilter] = useState("2026");
+  const [statusFilter, setStatusFilter] = useState("Active");
+  const [priorityFilter, setPriorityFilter] = useState("All");
+  const [fieldVisibility, setFieldVisibility] = useState(() => {
+    const visibility = getTrackedFieldVisibility(getTrackedFields());
+    return visibility;
+  });
 
   const summary = useMemo(() => getTrackedSummary(entries), [entries]);
 
-  const persistFields = (nextFields) => {
-    saveTrackedFields(nextFields);
-    setFields(getTrackedFields());
+  const priorityFeed = useMemo(
+    () => [
+      {
+        id: "feed-1",
+        color: "#dc2626",
+        title: "Delivery delayed - Route B",
+        time: "10 mins ago",
+      },
+      {
+        id: "feed-2",
+        color: "#f59e0b",
+        title: "Queue nearing capacity - Logistics",
+        time: "18 mins ago",
+      },
+      {
+        id: "feed-3",
+        color: "#16a34a",
+        title: "High priority work order closed",
+        time: "28 mins ago",
+      },
+      {
+        id: "feed-4",
+        color: "#2563eb",
+        title: "Supervisor approval submitted",
+        time: "42 mins ago",
+      },
+    ],
+    []
+  );
+
+  const flowRows = useMemo(
+    () => [
+      {
+        label: "Pending Assignment",
+        value: 45,
+        color: "#64748b",
+        tooltip: "View all 45 items",
+      },
+      {
+        label: "In Progress / On-Site",
+        value: 82,
+        color: "#f59e0b",
+        tooltip: "View all 82 items",
+      },
+      {
+        label: "Awaiting QA/Approval",
+        value: 15,
+        color: "#7c3aed",
+        tooltip: "View all 15 items",
+      },
+      {
+        label: "Completed (Today)",
+        value: 128,
+        color: "#16a34a",
+        tooltip: "View all 128 items",
+      },
+    ],
+    []
+  );
+
+  const flowMax = useMemo(() => Math.max(...flowRows.map((row) => row.value), 1), [flowRows]);
+
+  const syncVisibilityForFields = (nextFields) => {
+    const nextVisibility = getTrackedFieldVisibility(nextFields);
+    saveTrackedFieldVisibility(nextVisibility);
+    setFieldVisibility(nextVisibility);
   };
 
   const handleAddField = (event) => {
     event.preventDefault();
     const nextField = fieldInput.trim();
+
     if (!nextField) return;
     if (fields.some((field) => field.toLowerCase() === nextField.toLowerCase())) {
       setFieldInput("");
       return;
     }
 
-    persistFields([...fields, nextField]);
+    const nextFields = [...fields, nextField];
+    saveTrackedFields(nextFields);
+    setFields(nextFields);
+    syncVisibilityForFields(nextFields);
     setFieldInput("");
   };
 
   const handleRemoveField = (fieldToRemove) => {
-    persistFields(fields.filter((field) => field !== fieldToRemove));
+    const nextFields = fields.filter((field) => field !== fieldToRemove);
+    saveTrackedFields(nextFields);
+    setFields(nextFields);
+    syncVisibilityForFields(nextFields);
+  };
+
+  const handleToggleFieldVisibility = (field) => {
+    const nextVisibility = {
+      ...fieldVisibility,
+      [field]: !(fieldVisibility[field] !== false),
+    };
+    saveTrackedFieldVisibility(nextVisibility);
+    setFieldVisibility(nextVisibility);
   };
 
   return (
-    <div data-theme="corporate" className="min-h-screen bg-base-200">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
-        <aside className="border-b border-base-300 bg-base-100 px-4 py-5 md:min-h-screen md:w-72 md:border-b-0 md:border-r">
-          <div className="space-y-3">
-            <button className="btn btn-ghost btn-sm justify-start px-0" onClick={() => navigate("/")}>
-              ← Back to Home
-            </button>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/50">
-                Tracking
-              </p>
-              <h1 className="text-2xl font-semibold">Workflow Dashboard</h1>
-              <p className="mt-2 text-sm text-base-content/70">
-                Review tracked activity and control which labels appear in manual mode.
-              </p>
-            </div>
+    <div data-theme="corporate" className="dashboard-shell">
+      <div className="dashboard-wrap">
+        <header className="dashboard-header">
+          <div>
+            <h1 className="dashboard-title">Workflow Dashboard</h1>
+            <p className="card-subtitle">Fast view for supervisors with clear action status.</p>
           </div>
 
-          <nav className="mt-6 space-y-2">
-            <button
-              className={`btn btn-block justify-start ${
-                activeTab === "overview" ? "btn-primary" : "btn-ghost"
-              }`}
-              onClick={() => setActiveTab("overview")}
-            >
-              Overview
+          <div className="header-actions">
+            <button type="button" className="nav-btn" onClick={() => navigate("/")}>
+              Back Home
             </button>
-            <button
-              className={`btn btn-block justify-start ${
-                activeTab === "edit-views" ? "btn-primary" : "btn-ghost"
-              }`}
-              onClick={() => setActiveTab("edit-views")}
-            >
-              Edit Views
-            </button>
-            <button className="btn btn-outline btn-block justify-start" onClick={() => navigate("/manual-mode")}>
+            <button type="button" className="nav-btn" onClick={() => navigate("/manual-mode")}>
               Open Manual Mode
             </button>
-          </nav>
-
-          <div className="mt-8 rounded-2xl border border-base-300 bg-base-200 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/50">
-              Tenant
-            </p>
-            <p className="mt-2 font-medium">{config.tenantName}</p>
-            <p className="text-sm text-base-content/60">{config.industry || "General"}</p>
+            <button type="button" className="nav-btn" onClick={() => setEntries(getTrackedEntries())}>
+              Refresh
+            </button>
           </div>
-        </aside>
 
-        <main className="flex-1 px-4 py-5 md:px-8 md:py-8">
-          {activeTab === "overview" ? (
-            <div className="space-y-6">
-              <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <article className="card border border-base-300 bg-base-100 shadow-sm">
-                  <div className="card-body">
-                    <p className="text-sm text-base-content/60">Tracked submissions</p>
-                    <p className="text-4xl font-semibold text-primary">{summary.totalEntries}</p>
-                  </div>
-                </article>
+          <div className="filters-row">
+            <select
+              className="filter-pill"
+              value={yearFilter}
+              onChange={(event) => setYearFilter(event.target.value)}
+            >
+              <option value="2026">Year 2026</option>
+              <option value="2025">Year 2025</option>
+              <option value="2024">Year 2024</option>
+            </select>
+            <select
+              className="filter-pill"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
+              <option value="Active">Active</option>
+              <option value="All">All</option>
+              <option value="Closed">Closed</option>
+            </select>
+            <select
+              className="filter-pill"
+              value={priorityFilter}
+              onChange={(event) => setPriorityFilter(event.target.value)}
+            >
+              <option value="All">Priority All</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+            </select>
+          </div>
+        </header>
 
-                <article className="card border border-base-300 bg-base-100 shadow-sm">
-                  <div className="card-body">
-                    <p className="text-sm text-base-content/60">Configured labels</p>
-                    <p className="text-4xl font-semibold text-secondary">{fields.length}</p>
-                  </div>
-                </article>
+        <section className="top-grid">
+          <article className="card">
+            <p className="kpi-label">Total Inventory Scanned</p>
+            <p className="kpi-value" style={{ color: "#166534" }}>1,248</p>
+            <span className="kpi-badge">+5% today</span>
+            <Sparkline />
+          </article>
 
-                <article className="card border border-base-300 bg-base-100 shadow-sm">
-                  <div className="card-body">
-                    <p className="text-sm text-base-content/60">Last updated</p>
-                    <p className="text-lg font-semibold">{formatTimestamp(summary.lastUpdated)}</p>
-                  </div>
-                </article>
-              </section>
-
-              <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_0.95fr]">
-                <article className="card border border-base-300 bg-base-100 shadow-sm">
-                  <div className="card-body">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <h2 className="card-title">Recent activity</h2>
-                        <p className="text-sm text-base-content/60">
-                          New manual submissions appear here after techs click Add.
-                        </p>
-                      </div>
-                      <button className="btn btn-sm btn-outline" onClick={() => setEntries(getTrackedEntries())}>
-                        Refresh
-                      </button>
-                    </div>
-
-                    {entries.length === 0 ? (
-                      <div className="mt-4 rounded-2xl border border-dashed border-base-300 p-6 text-sm text-base-content/60">
-                        No tracked submissions yet. Use manual mode to start recording entries.
-                      </div>
-                    ) : (
-                      <div className="mt-4 space-y-3">
-                        {entries.slice(0, 5).map((entry) => (
-                          <div key={entry.id} className="rounded-2xl border border-base-300 p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="font-medium">Tracked entry</p>
-                              <span className="text-xs text-base-content/50">
-                                {formatTimestamp(entry.createdAt)}
-                              </span>
-                            </div>
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                              {fields.map((field) => (
-                                <div key={`${entry.id}-${field}`} className="rounded-xl bg-base-200 px-3 py-2">
-                                  <p className="text-xs uppercase tracking-wide text-base-content/50">
-                                    {field}
-                                  </p>
-                                  <p className="text-sm font-medium">
-                                    {entry.values?.[field] || "-"}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </article>
-
-                <article className="card border border-base-300 bg-base-100 shadow-sm">
-                  <div className="card-body">
-                    <h2 className="card-title">Manual mode preview</h2>
-                    <p className="text-sm text-base-content/60">
-                      These labels appear in the rectangle that technicians fill out.
-                    </p>
-                    <div className="mt-4 rounded-3xl border-2 border-base-300 bg-base-200 p-5">
-                      <div className="space-y-3">
-                        {fields.map((field) => (
-                          <div key={field} className="rounded-2xl border border-base-300 bg-base-100 px-4 py-3">
-                            <p className="text-sm font-medium">{field}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              </section>
+          <article className="card">
+            <p className="kpi-label">Active Logistics Queues</p>
+            <p className="kpi-value" style={{ color: "#0f172a" }}>24</p>
+            <div className="capacity-track">
+              <div className="capacity-fill" />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-              <section className="card border border-base-300 bg-base-100 shadow-sm">
-                <div className="card-body">
+            <p className="capacity-caption">65% Capacity</p>
+          </article>
+
+          <article className="card">
+            <p className="kpi-label">Overdue Deliveries / Alerts</p>
+            <p className="kpi-value" style={{ color: "#dc2626" }}>6</p>
+            <div className="alert-line">
+              <span aria-hidden="true">⚠</span>
+              <span>Action required</span>
+            </div>
+          </article>
+        </section>
+
+        <section className="middle-grid">
+          <article className="card">
+            <h2 className="card-title">Active Workflow Status</h2>
+            <p className="card-subtitle">Real-time volume of scanned items across operational stages.</p>
+
+            {flowRows.map((row) => (
+              <div className="pipeline-row" key={row.label}>
+                <div className="pipeline-label">
+                  <span>{row.label}</span>
+                  <span>{row.value}</span>
+                </div>
+                <div className="pipeline-track">
+                  <div
+                    className="pipeline-fill"
+                    style={{ width: `${Math.max(8, (row.value / flowMax) * 100)}%`, background: row.color }}
+                  />
+                  <span className="pipeline-tooltip">{row.tooltip}</span>
+                </div>
+              </div>
+            ))}
+          </article>
+
+          <article className="card">
+            <h2 className="card-title">Priority Action Feed</h2>
+            <p className="card-subtitle">Items that need supervisor attention.</p>
+            <div className="feed-list">
+              {priorityFeed.map((item) => (
+                <div className="feed-item" key={item.id}>
+                  <span className="feed-dot" style={{ background: item.color }} />
                   <div>
-                    <h2 className="card-title">Edit Views</h2>
-                    <p className="text-sm text-base-content/60">
-                      Add the labels you want technicians to complete in manual mode.
-                    </p>
-                  </div>
-
-                  <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={handleAddField}>
-                    <input
-                      type="text"
-                      className="input input-bordered flex-1"
-                      value={fieldInput}
-                      onChange={(event) => setFieldInput(event.target.value)}
-                      placeholder="Add a new tracked label"
-                    />
-                    <button type="submit" className="btn btn-primary">
-                      Add Label
-                    </button>
-                  </form>
-
-                  <div className="mt-5 space-y-3">
-                    {fields.map((field) => (
-                      <div
-                        key={field}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-base-300 p-4"
-                      >
-                        <div>
-                          <p className="font-medium">{field}</p>
-                          <p className="text-sm text-base-content/50">Shown to technicians in manual mode</p>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-ghost text-error"
-                          onClick={() => handleRemoveField(field)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
+                    <p className="feed-title">{item.title}</p>
+                    <p className="feed-time">{item.time}</p>
                   </div>
                 </div>
-              </section>
-
-              <section className="card border border-base-300 bg-base-100 shadow-sm">
-                <div className="card-body">
-                  <h2 className="card-title">Rectangle Preview</h2>
-                  <p className="text-sm text-base-content/60">
-                    This is the block users see when they click Manual Mode.
-                  </p>
-                  <div className="mt-4 rounded-3xl border-2 border-dashed border-primary/40 bg-base-200 p-5">
-                    <div className="space-y-3">
-                      {fields.map((field) => (
-                        <div key={field} className="rounded-2xl border border-base-300 bg-base-100 px-4 py-3">
-                          <p className="text-sm font-medium">{field}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      <button type="button" className="btn btn-primary" disabled>
-                        Add
-                      </button>
-                      <button type="button" className="btn btn-outline" disabled>
-                        Go Back
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </section>
+              ))}
             </div>
-          )}
-        </main>
+          </article>
+        </section>
+
+        <section className="card admin-card">
+          <h2 className="card-title">Active Custom Fields (Admin View)</h2>
+          <p className="card-subtitle">Toggle which fields are visible to technicians on the entry form.</p>
+
+          <form className="add-field-row" onSubmit={handleAddField}>
+            <input
+              type="text"
+              className="add-field-input"
+              value={fieldInput}
+              onChange={(event) => setFieldInput(event.target.value)}
+              placeholder="Add a custom field"
+            />
+            <button type="submit" className="add-field-btn">
+              Add Field
+            </button>
+          </form>
+
+          <div className="admin-grid">
+            {fields.map((field) => {
+              const isVisible = fieldVisibility[field] !== false;
+
+              return (
+                <div className={`admin-row ${isVisible ? "" : "hidden"}`} key={field}>
+                  <p className="field-name">{field}</p>
+                  <div className="field-controls">
+                    <button
+                      type="button"
+                      className="eye-toggle"
+                      aria-label={isVisible ? `Hide ${field}` : `Show ${field}`}
+                      title={isVisible ? "Visible to technicians" : "Hidden from technicians"}
+                      onClick={() => handleToggleFieldVisibility(field)}
+                    >
+                      {isVisible ? <EyeIcon /> : <EyeSlashIcon />}
+                    </button>
+                    <button
+                      type="button"
+                      className="remove-btn"
+                      onClick={() => handleRemoveField(field)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="card-subtitle" style={{ marginTop: "10px" }}>
+            Latest update: {formatTimestamp(summary.lastUpdated)} | Tenant: {config.tenantName}
+          </p>
+        </section>
       </div>
     </div>
   );

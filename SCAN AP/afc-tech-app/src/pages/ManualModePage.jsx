@@ -4,19 +4,19 @@ import { useTenant } from "../context/TenantContext";
 import {
   addTrackedEntry,
   createEmptyTrackedValues,
-  getTrackedFields,
+  getVisibleTrackedFields,
 } from "../utils/trackedWorkflow";
 
 export default function ManualModePage() {
   const navigate = useNavigate();
   const { config } = useTenant();
   const terms = config.terminology;
-  const [fields, setFields] = useState(() => getTrackedFields());
-  const [values, setValues] = useState(() => createEmptyTrackedValues(getTrackedFields()));
+  const [fields, setFields] = useState(() => getVisibleTrackedFields());
+  const [values, setValues] = useState(() => createEmptyTrackedValues(getVisibleTrackedFields()));
   const [savedMessage, setSavedMessage] = useState("");
 
   useEffect(() => {
-    const nextFields = getTrackedFields();
+    const nextFields = getVisibleTrackedFields();
     setFields(nextFields);
     setValues(createEmptyTrackedValues(nextFields));
   }, []);

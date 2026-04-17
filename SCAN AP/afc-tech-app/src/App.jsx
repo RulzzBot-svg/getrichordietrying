@@ -100,24 +100,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Manual Mode */}
-          <div className="card bg-base-100 border border-base-300 shadow-sm">
-            <div className="card-body p-4">
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="card-title text-base">
-                  Manual Mode – Select {terms.location_name}
-                </h2>
-                <span className="badge rounded-2xl badge-ghost text-xs">Fallback</span>
-              </div>
-              <p className="text-sm text-base-content/70 mb-3 leading-snug">
-                If the QR label is missing or you need to log work directly, open the
-                tracked manual entry form and fill in the fields configured on the dashboard.
-              </p>
-              <button className="btn btn-outline w-full" onClick={() => navigate("/manual-mode")}>
-                Open Manual Mode
-              </button>
-            </div>
-          </div>
         </section>
 
         {/* Admin Dashboard - Only show for admin users */}
